@@ -20,7 +20,6 @@ Run Mode: Are you running the bot via Docker or manually?
 OS: [e.g. Ubuntu, Windows, macOS]
 Version: [e.g. 1.0.0, etc.]
 Debug Logs
-Include any debug logs or error messages you encountered. If debug mode wasn’t enabled, please enable it and attach the logs.
 
 Additional context
 Add any other context about the problem here.
@@ -36,3 +35,5 @@ Scroll down to '....'
 See error
 Expected behavior
 A clear and concise description of what you expected to happen.
+Include any debug logs or error messages you encountered. If debug mode wasn’t enabled, please enable it and attach the logs.
+
