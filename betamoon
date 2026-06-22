@@ -1,32 +1,36 @@
-Describe the bug
-A clear and concise description of what the bug is.
+.DS_Store
+.swiftpm/
+.build/
+.vscode/
 
-To Reproduce
-Steps to reproduce the behavior:
+# Xcode
+xcuserdata/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+timeline.xctimeline
+playground.xcworkspace
 
+wwdc/
 
-Screenshots
-If applicable, add screenshots to help explain your problem.
+# Secrets
+.env
+.env.*
+*.pem
+*.p12
+*.p8
+AuthKey_*.p8
+credentials.json
+secrets.json
+*.local
+*.provisionprofile
 
-Environment and Setup
+# mcpb shim dependencies (vendored only inside the packed .mcpb)
+mcpb/server/node_modules/
 
-Run Mode: Are you running the bot via Docker or manually?
-OS: [e.g. Ubuntu, Windows, macOS]
-Version: [e.g. 1.0.0, etc.]
-Debug Logs
-Additional context
-Add any other context about the problem here.
-Go to '...'
-Click on '....'
-Scroll down to '....'
-See error
-Expected behavior
-A clear and concise description of what you expected to happen.
-Go to '...'
-Click on '....'
-Scroll down to '....'
-See error
-Expected behavior
-A clear and concise description of what you expected to happen.
-Include any debug logs or error messages you encountered. If debug mode wasn’t enabled, please enable it and attach the logs.
-
+# CLIP models
+models/*/.venv/
+models/*/build*/
+models/*/checkpoint*
+models/*/convert*.log
