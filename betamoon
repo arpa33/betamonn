@@ -1,46 +1,204 @@
-.DS_Store
-.swiftpm/
-.build/
-.vscode/
+nexoravault/
+├── app/
+│   ├── api/
+│   │   ├── routes/
+│   │   │   ├── auth.py
+│   │   │   ├── secrets.py
+│   │   │   └── audit.py
+│   │   └── router.py
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   └── logging.py
+│   ├── db/
+│   │   ├── database.py
+│   │   └── models.py
+│   ├── schemas/
+│   │   ├── auth.py
+│   │   └── secrets.py
+│   ├── services/
+│   │   ├── auth_service.py
+│   │   ├── encryption_service.py
+│   │   └── secret_service.py
+│   └── main.py
+├── tests/
+│   ├── test_auth.py
+│   ├── test_secrets.py
+│   └── test_encryption.py
+├── alembic/
+├── .env.example
+├── .gitignore
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
+# app/core/security.py
 
-# Xcode
-xcuserdata/
-*.hmap
-*.ipa
-*.dSYM.zip
-*.dSYM
-timeline.xctimeline
-playground.xcworkspace
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+import hashlib
+import os
+import secrets
 
-wwdc/
 
-# Secrets
-.env
-.env.*
-*.pem
-*.p12
-*.p8
-AuthKey_*.p8
-credentials.json
-secrets.json
-*.local
-*.provisionprofile
-AuthKey_*.p8
-credentials.json
-secrets.json
-xcuserdata/
-*.hmap
-*.ipa
-*.dSYM.zip
-*.dSYM
-timeline.xctimeline
-playground.xcworkspace
+class EncryptionService:
+    """
+    Application-level encryption service using AES-256-GCM.
+    """
 
-# mcpb shim dependencies (vendored only inside the packed .mcpb)
-mcpb/server/node_modules/
+    def __init__(self, master_key: str):
+        key = hashlib.sha256(master_key.encode()).digest()
+        self._key = key
 
-# CLIP models
-models/*/.venv/
-models/*/build*/
-models/*/checkpoint*
-models/*/convert*.log
+    def encrypt(self, plaintext: str) -> str:
+        nonce = os.urandom(12)
+        cipher = AESGCM(self._key)
+
+        ciphertext = cipher.encrypt(
+            nonce,
+            plaintext.encode("utf-8"),
+            None,
+        )
+
+        return f"{nonce.hex()}:{ciphertext.hex()}"
+
+    def decrypt(self, payload: str) -> str:
+        nonce_hex, ciphertext_hex = payload.split(":", 1)
+
+        nonce = bytes.fromhex(nonce_hex)
+        ciphertext = bytes.fromhex(ciphertext_hex)
+
+        cipher = AESGCM(self._key)
+
+        plaintext = cipher.decrypt(
+            nonce,
+            ciphertext,
+            None,
+        )
+
+        return plaintext.decode("utf-8")
+
+
+def generate_secret(length: int = 32) -> str:
+    """
+    Generate a cryptographically secure random secret.
+    """
+    return secrets.token_urlsafe(length)
+# app/api/routes/secrets.py
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from app.core.security import EncryptionService
+
+router = APIRouter(prefix="/secrets", tags=["Secrets"])
+
+encryption = EncryptionService(
+    master_key="development-master-key"
+)
+
+
+class SecretCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    value: str = Field(min_length=1)
+
+
+class SecretResponse(BaseModel):
+    id: int
+    name: str
+
+
+secrets_store = {}
+counter = 1
+
+
+@router.post("/", response_model=SecretResponse)
+def create_secret(payload: SecretCreate):
+    global counter
+
+    encrypted_value = encryption.encrypt(payload.value)
+
+    secrets_store[counter] = {
+        "name": payload.name,
+        "value": encrypted_value,
+    }
+
+    response = SecretResponse(
+        id=counter,
+        name=payload.name,
+    )
+
+    counter += 1
+
+    return response
+
+
+@router.get("/{secret_id}")
+def get_secret(secret_id: int):
+    secret = secrets_store.get(secret_id)
+
+    if not secret:
+        raise HTTPException(
+            status_code=404,
+            detail="Secret not found",
+        )
+
+    return {
+        "id": secret_id,
+        "name": secret["name"],
+        "value": encryption.decrypt(secret["value"]),
+    }
+# app/main.py
+
+from fastapi import FastAPI
+
+from app.api.routes.secrets import router as secrets_router
+
+app = FastAPI(
+    title="NexoraVault",
+    description="Secure secret management API",
+    version="1.0.0",
+)
+
+app.include_router(secrets_router)
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "NexoraVault",
+    }
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD [
+    "uvicorn",
+    "app.main:app",
+    "--host",
+    "0.0.0.0",
+    "--port",
+    "8000"
+]
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+sqlalchemy>=2.0
+alembic>=1.13
+psycopg[binary]>=3.2
+cryptography>=43.0
+python-jose>=3.3
+passlib>=1.7
+pytest>=8.0
+httpx>=0.27
